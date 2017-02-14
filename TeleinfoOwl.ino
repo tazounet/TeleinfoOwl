@@ -1,19 +1,23 @@
 // Emulate the OWL CM180 Energy Monitor using "TeleInfo"
 
 // rf433 lib: https://github.com/tazounet/OwlSender
+// teleinfo lib: https://github.com/tazounet/TeleInfo
 
 // serial debug
-#define DEBUG 1
+#define DEBUG 0
 
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <Wire.h>
 #include "OwlSender.h"
+#include "TeleInfo.h"
 
 const uint8_t txPin = 4; // digital pin connected to the RF transmitter
+const uint8_t rxPin = 8; // teleinfo
 const uint8_t ledPin = 13; // digital pin for LED
 
 OwlSender sender;
+TeleInfo info;
 
 void setup()
 {
@@ -68,29 +72,40 @@ void setup()
   }
 
   sender.setup(txPin, sensorId);
+  info.setup(rxPin);
   pinMode(ledPin, OUTPUT);
 }
 
 void loop()
 {
-  int rtCons = 2500;
-  long accuCons = 18000;
+  boolean teleInfoReceived;
+  int rtCons = 0;
+  long accuCons = 0;
+
+  teleInfoReceived = info.readTeleInfo();
+  if (teleInfoReceived)
+  {
+    rtCons = info.getPAPP();
+    accuCons = info.getBASE();
 
 #if DEBUG
-  Serial.print("rtCons: ");
-  Serial.print(rtCons);
-  Serial.print("W, accuCons: ");
-  Serial.print(accuCons);
-  Serial.println("Wh");
+    info.displayTeleInfo();
 #endif
 
-  // send the data
-  sender.send(rtCons, accuCons);
+    // send the data
+    sender.send(rtCons, accuCons);
 
-  blinkLed();
+    blinkLed();
 
-  // delay for 12 seconds
-  delay(12000);
+    // delay for 12 seconds
+    delay(12000);
+  }
+  else
+  {
+ #if DEBUG
+    Serial.println("No teleinfo received !");
+ #endif
+  }
 }
 
 void blinkLed()
